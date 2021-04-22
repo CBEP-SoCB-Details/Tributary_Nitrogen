@@ -1,0 +1,154 @@
+---
+title: "Tributary Nitrogen Concentrations"
+author: "Curtis C. Bohlen, Casco Bay Estuary Partnership."
+date: "04/22/2021"
+output:
+  github_document:
+    toc: true
+    fig_width: 5
+    fig_height: 4
+---
+
+<img
+    src="https://www.cascobayestuary.org/wp-content/uploads/2014/04/logo_sm.jpg"
+    style="position:absolute;top:10px;right:50px;" />
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = 'center',
+                      fig.width = 5, fig.height = 4,
+                      collapse = TRUE, comment = "#>")
+```
+
+# Install Libraries
+```{r}
+library(readxl)
+library(tidyverse)
+library(GGally)
+
+library(CBEPgraphics)
+load_cbep_fonts()
+theme_set(theme_cbep())
+```
+
+# Read Data
+```{r foder_refs}
+sibfldnm <- 'Original_Data'
+parent <- dirname(getwd())
+sibling <- paste(parent,sibfldnm, sep = '/')
+fn <- '2017-18 Casco Bay Tributary Nitrogen Concentrations.xlsx'
+
+dir.create(file.path(getwd(), 'figures'), showWarnings = FALSE)
+```
+
+
+```{r warning = FALSE}
+the_data <- read_excel(file.path(sibling, fn), 
+                       col_types = c("date", "numeric", "numeric", 
+                                     "numeric", "numeric"), skip = 1) %>%
+  filter( ! is.na(Date)) %>%
+  rename(dt = Date,
+         tn = `TN (mg/l)`,
+         nox = `NOx (mg/L)`,
+         nh4 = `NH4 (mg/L)`,
+         organic = `Organic (mg/L)`) %>%
+  mutate(dt = as.Date(dt))
+```
+
+
+```{r}
+the_data$tributary <- c(rep('Presumpscot',17), 
+                        rep('Royal', 19), 
+                        rep('Capisic', 16))
+the_data <- the_data %>%
+  relocate(tributary) %>%
+  mutate(tributary = factor(tributary, levels = c('Capisic', 'Royal', 'Presumpscot')))
+```
+
+# Exploratory Graphics
+## Pairs Plot
+```{r fig.width = 8, fig.height = 8}
+plt <- ggpairs(the_data[3:6], 
+               mapping = aes(color =the_data$tributary), progress = FALSE)
+plt
+```
+
+Quickly reviewing that, you see:  
+1.   TN is quite distinct among all three sources. The Presumpscot has very low 
+     values for all parameters.  
+2.   Ammonium is lower in the rivers, and higher at Capisic -- although given 
+     small sample sizes, that may not be statistically significant.
+
+# Alternative Graphics
+## Density Plots
+```{r}
+plt <- ggplot(the_data, aes(x=tn, y = ..density.., fill= tributary)) + 
+  geom_density(alpha = 0.5) +
+  scale_fill_manual(values=cbep_colors(), name = '') +
+  xlab("Total Nitrogen (mg/l)") + 
+  ylab("Density") +
+  theme(legend.position = c(0.75, 0.75))
+plt
+ggsave('figures/densityplot.pdf', device = cairo_pdf, width = 5, height = 4)
+```
+
+```{r}
+plt <- ggplot(the_data, aes(x=tn, fill = tributary)) + 
+  geom_area(aes(fill = tributary), stat = "bin", alpha = 0.5) +
+  scale_fill_manual(values=cbep_colors(), name = '') +
+  xlab("Total Nitrogen (mg/l)") + 
+  ylab("Observations") +
+  theme(legend.position = c(0.75, 0.75))
+plt
+ggsave('figures/densitypoly.pdf', device = cairo_pdf, width = 5, height = 4)
+```
+
+
+## Histograms
+Histograms are a bit more "honest", since they don't bury the tiny sample size. 
+But neither of these are particularly attractive from a design perspective.
+```{r}
+plt <- ggplot(the_data, aes(x=tn, fill= tributary)) +
+  geom_histogram(position = position_dodge2(preserve = "single", padding = -0.75),
+                 alpha = 0.5, 
+                 binwidth = 0.1) + 
+   scale_fill_manual(values=cbep_colors(), name = '') +
+  xlab('Total Nitrogen (mg/l)') + 
+  ylab('Observations') +
+  theme(legend.position = c(0.8, 0.75))
+plt
+ggsave('figures/histogram1.pdf', device = cairo_pdf, width = 5, height = 4)
+```
+
+```{r}
+plt <- ggplot(the_data, aes(x=tn, fill= tributary)) +
+  geom_histogram(data = subset(the_data, tributary == 'Capisic'),
+                 fill = cbep_colors()[1], 
+                 alpha = 0.3, 
+                 binwidth = 0.1, 
+                 color = 'black') +
+  geom_histogram(data = subset(the_data, tributary == 'Royal'),
+                 fill = cbep_colors()[2], alpha = 0.3, binwidth = 0.1, color = 'black') +
+  geom_histogram(data = subset(the_data, tributary == 'Presumpscot'),
+                 fill = cbep_colors()[3], alpha = 0.3, binwidth = 0.1, color = 'black') +
+  xlab('Total Nitrogen (mg/l)') + ylab('Observations') +
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+plt
+```
+
+## Dot Plot
+```{r fig.width = 3.5, fig,height = 2.5}
+plt <- ggplot(the_data, aes(x=tributary, y = tn)) +
+  geom_dotplot(binaxis='y', stackdir='center', 
+               binwidth = 0.025, dotsize = 1.5, 
+               fill = cbep_colors()[5], color = cbep_colors()[3]) +
+                                                              
+  ylab('Total Nitrogen (mg/l)') + 
+  xlab('') +
+    
+ # ylim(c(0,1.5)) +
+  theme_cbep(base_size = 14)
+plt
+ggsave('figures/dotplot.pdf', device = cairo_pdf, width = 3.5, height = 2.5)
+
+```

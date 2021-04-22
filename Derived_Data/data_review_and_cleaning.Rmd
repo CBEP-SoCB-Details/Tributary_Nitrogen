@@ -1,0 +1,72 @@
+---
+title: "Review and Reorganization of Whitley Gray's Tributary Nitrogen Data"
+author: "Curtis C. Bohlen, Casco Bay Estuary Partnership."
+date: "04/22/2021"
+output:
+  github_document:
+    toc: true
+    fig_width: 5
+    fig_height: 4
+---
+<img
+    src="https://www.cascobayestuary.org/wp-content/uploads/2014/04/logo_sm.jpg"
+    style="position:absolute;top:10px;right:50px;" />
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = 'center',
+                      fig.width = 5, fig.height = 4,
+                      collapse = TRUE, comment = "#>")
+```
+
+# Install Libraries
+```{r}
+library(readxl)
+library(tidyverse)
+library(GGally)
+
+library(CBEPgraphics)
+load_cbep_fonts()
+theme_set(theme_cbep())
+```
+
+# Read Data
+```{r foder_refs}
+sibfldnm <- 'Original_Data'
+parent <- dirname(getwd())
+sibling <- paste(parent,sibfldnm, sep = '/')
+fn <- '2017-18 Casco Bay Tributary Nitrogen Concentrations.xlsx'
+```
+
+
+```{r}
+the_data <- read_excel(file.path(sibling, fn), 
+                       col_types = c("date", "numeric", "numeric", 
+                                     "numeric", "numeric"), skip = 1) %>%
+  filter( ! is.na(Date)) %>%
+  rename(dt = Date,
+         tn = `TN (mg/l)`,
+         nox = `NOx (mg/L)`,
+         nh4 = `NH4 (mg/L)`,
+         organic = `Organic (mg/L)`)
+```
+
+
+```{r}
+the_data$tributary <- c(rep('Presumpscot',17), rep('Royal', 19), rep('Capisic', 16))
+the_data <- the_data %>%
+  relocate(tributary)
+```
+
+# Initial Graphic
+```{r}
+ggplot(the_data, aes(dt, tn, color = tributary)) +
+  geom_line() +
+  scale_color_manual(values = cbep_colors(), name = '') +
+  ylab("Total Nitrogen (mg/l)") +
+  
+  theme(legend.position = 'bottom')
+  xlab('Date')
+```
+
+
+
