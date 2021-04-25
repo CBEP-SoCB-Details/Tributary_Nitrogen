@@ -20,11 +20,15 @@ knitr::opts_chunk$set(fig.align = 'center',
 ```
 
 # Install Libraries
-```{r}
+```{r libraries}
 library(readxl)
 library(readr)
 library(tidyverse)
+
 library(GGally)
+library(Ternary) # Base graphics ternary plots
+
+library(mblm)    # For median based (robust) linear models
 
 library(CBEPgraphics)
 load_cbep_fonts()
@@ -32,7 +36,7 @@ theme_set(theme_cbep())
 ```
 
 # Read Data
-```{r foder_refs}
+```{r folder_refs}
 sibfldnm <- 'Original_Data'
 parent <- dirname(getwd())
 sibling <- paste(parent,sibfldnm, sep = '/')
@@ -41,8 +45,7 @@ fn <- '2017-18 Casco Bay Tributary Nitrogen Concentrations.xlsx'
 dir.create(file.path(getwd(), 'figures'), showWarnings = FALSE)
 ```
 
-
-```{r warning = FALSE}
+```{r load_main_data, warning = FALSE}
 the_data <- read_excel(file.path(sibling, fn), 
                        col_types = c("date", "numeric", "numeric", 
                                      "numeric", "numeric"), skip = 1) %>%
@@ -55,8 +58,7 @@ the_data <- read_excel(file.path(sibling, fn),
   mutate(dt = as.Date(dt))
 ```
 
-
-```{r}
+```{r add_tributaries}
 the_data$tributary <- c(rep('Presumpscot',17), 
                         rep('Royal', 19), 
                         rep('Capisic', 16))
@@ -66,8 +68,8 @@ the_data <- the_data %>%
 ```
 
 # Rainfall Data
-Downloaded rainfall data is in tenths of millimeters.
-```{r warning = FALSE}
+Downloaded rainfall data is in tenths of millimeters.  We convert to millimeters.
+```{r load_weather_data, warning = FALSE}
 rain_data <- read_csv(file.path(sibling, 'portland_weather5_17-8_18.csv'),
                       col_types = cols(
                         .default = col_skip(),
@@ -76,21 +78,30 @@ rain_data <- read_csv(file.path(sibling, 'portland_weather5_17-8_18.csv'),
   mutate(PRCP = PRCP / 10)
 ```
 
-## Add Lagged terms
-```{r}
+## Add Lagged Terms
+The code uses `reduce()`, which applies a function sequentially to items in a
+list. The list here is generated using `map()` to pull prior observations using
+(the `dplyr` version ) of `lag()`. The reduce step adds them together to 
+produce a cumulative sum.
+```{r lagged_terms}
 rain_data <- rain_data %>% mutate(LagOne   = lag(PRCP),
                              SumThree = reduce(map(1:3, ~lag(PRCP, ., 0)), `+`),
                              SumFive  = reduce(map(1:5, ~lag(PRCP, ., 0)), `+`))
 ```
 
 ## Merge Data Together
-Lagged functions generate either nonsense or NAs, but only for the first few 
-days of the rain_data.  Here we don't call on any of those days, so we can use 
-the data "as is" without worrying.
+Lagged functions generate either nonsense or NAs for the first few 
+days of the rain_data.  However, we downloaded data starting well before any of 
+the dates when data was collected. We can use the data "as is" without worrying
+about reading in values that don't really include information from one, three,
+or five days.
 
-Notice the use of "match" here to gather exact date matches. This allows 
-something very much like a lookup table.
-```{r}
+We use of `match()` here to gather exact date matches. This allows something
+like a lookup table in Base R.  A Tidyverse alternative would be to 
+use `left_join()`, which is a bit easier to parse, but this was legacy code,
+and not worth revising.
+
+```{r combine_data}
 the_data <- the_data %>% 
   mutate(DayOf = rain_data$PRCP[match(the_data$dt, rain_data$date)],
          LagOne = rain_data$LagOne[match(the_data$dt, rain_data$date)],
@@ -100,62 +111,308 @@ rm(rain_data)
 ```
 
 
-# Correlation Between Rivers by Date 
-```{r}
-tmp <- the_data %>% select(dt, tributary, tn) %>%
-  spread(tributary, tn) %>% select(-1)
-  cor(tmp, use = "p")
-  cor(tmp, use = "p", method = 's')
+# Correlation Between Rivers by Date
+If rainfall is important in shaping river nitrogen loads, then we might expect 
+concentrations of nitrogen to be correlated across rivers. We check for that
+(somewhat informally) here.
+
+With an effective sample size of only sixteen observations on matching dates
+from all sites (sometimes 17 for certain pairs), the critical correlation 
+coefficient is on the order of 0.5 at p ~ 0.05.
+
+Because nitrogen data are often highly skewed, rank correlations are preferable.
+These tests should be considered preliminary, as they do not consider temporal
+autocorrelations which may be important.  Data, however, is too sparse to allow 
+rigorous checking of its importance.
+
+## Total Nitrogen
+```{r tn_correlations_by_river}
+tmp <- the_data %>%
+  select(dt, tributary, tn) %>%
+  pivot_wider(names_from = tributary, values_from = tn) %>%
+  select(-dt)
+cor(tmp, use = "p", method = 'spearman')
 ```
 
-```{r}
-plt <- ggpairs(tmp)
-plt
-
+## Nitrate
+```{r nox_correlations_by_river}
+tmp <- the_data %>% 
+  select(dt, tributary, nox) %>%
+  pivot_wider(names_from = tributary, values_from = nox) %>%
+  select(-dt)
+  cor(tmp, use = "pairwise", method = 'spearman')
 ```
-So, the apparent correlations across sites are pretty wobbly....
 
-```{r}
-plt <- ggplot(the_data, aes(dt, tn, color = tributary)) +
+The Royal - Capisic Correlation will be  marginally significant.
+
+## Ammonium
+```{r nh4_correlations_by_river}
+tmp <- the_data %>% select(dt, tributary, nh4) %>%
+  pivot_wider(names_from = tributary, values_from = nh4) %>%
+  select(-dt)
+  cor(tmp, use = "pairwise", method = 'spearman')
+```
+
+Note that the Royal - Capisic (Spearman) correlation coefficient here is 
+identical to the one we calculated for the nitrate data.  That is not as odd 
+as it may sound, given low sample size and high expected correlations between 
+nitrogen species.
+
+## Organic
+```{r organic_correlations_by_river}
+tmp <- the_data %>% select(dt, tributary, organic) %>%
+  pivot_wider(names_from = tributary, values_from = organic) %>%
+  select(-dt)
+  cor(tmp, use = "pairwise", method = 'spearman')
+```
+
+The Royal - Capisic correlation here is quite high.
+
+## Confirm statistical significance
+
+### Ammonium
+#### Capisic and Royal
+```{r capisic-royal_nh4_test}
+tmp <- the_data %>% 
+  filter (tributary != 'Presumpscot') %>%
+  select(dt, tributary, nh4) %>%
+  pivot_wider(names_from = tributary, values_from = nh4) %>%
+  select(-dt)
+cor.test(tmp[[1]], tmp[[2]], use = 'pairwise', method= 'kendall')
+```
+That comes out as marginally not significant, but a Pearson correlation is 
+highly significant and  Kendall's Tau is just barely significnat at p < 0.05.
+We conclude that this is probably a real relationship, but data is too sparse to 
+be fully confident of the results.
+
+
+#### Royal and Pesumpscot
+```{r royal_presumpscot_nh4_test}
+tmp <- the_data %>% 
+  filter (tributary != 'Capisic') %>%
+  select(dt, tributary, nh4) %>%
+  pivot_wider(names_from = tributary, values_from = nh4) %>%
+  select(-dt)
+cor.test(tmp[[1]], tmp[[2]], use = 'pairwise', method= 'spearman')
+```
+
+#### Presumpscot and Capisic
+```{r presumpscot_capisic_nk4_test}
+tmp <- the_data %>% 
+  filter (tributary != 'Royal') %>%
+  select(dt, tributary, nh4) %>%
+  pivot_wider(names_from = tributary, values_from = nh4) %>%
+  select(-dt)
+cor.test(tmp[[1]], tmp[[2]], use = 'pairwise', method= 'spearman')
+```
+
+```{r plot_ammonium_by_river}
+plt <- ggplot(the_data, aes(dt, nh4, color = tributary, size = )) +
   geom_line()  +
   geom_point(size = 2) +
-  scale_color_manual(values=cbep_colors(), name = '') +
-  scale_x_date(date_breaks = '3 month', date_labels = '%m/%Y', name = '') +
-  theme(legend.position = 'bottom',
+ scale_color_manual(values=cbep_colors(), name = '') +
+ scale_x_date(date_breaks = '3 month', date_labels = '%m/%Y', name = '') +
+ theme(legend.position = 'bottom',
         axis.text.x = element_text(size = 11)) +
-  ylab('Total Nitrogen (mg/l)')
+  ylab('Ammonium Nitrogen (mg/l)')
 plt
 ```
 
+### Organic N
+#### Capisic and Royal
+```{r capisic-royal_organic_test}
+tmp <- the_data %>% 
+  filter (tributary != 'Presumpscot') %>%
+  select(dt, tributary, organic) %>%
+  pivot_wider(names_from = tributary, values_from = organic) %>%
+  select(-dt)
+cor.test(tmp[[1]], tmp[[2]], use = 'pairwise', method= 'spearman')
+```
+
+(The other two pairs are clearly not significant)
+
+```{r plot_organic_by_trib}
+plt <- ggplot(the_data, aes(dt, organic, color = tributary)) +
+  geom_line()  +
+  geom_point(size = 2) +
+ scale_color_manual(values=cbep_colors(), name = '') +
+ scale_x_date(date_breaks = '3 month', date_labels = '%m/%Y', name = '') +
+ theme(legend.position = 'bottom',
+        axis.text.x = element_text(size = 11)) +
+  ylab('Organic Nitrogen (mg/l)')
+plt
+```
+
+```{r organic_capisic_royal, fig.width = 3, fig.height = 3}
+plt <- the_data %>% 
+  filter (tributary != 'Presumpscot') %>%
+  select(dt, tributary, organic) %>%
+  pivot_wider(names_from = tributary, values_from = organic) %>%
+  select(-dt) %>%
+  
+  ggplot(aes(Capisic, Royal)) +
+  geom_point(size = 2, color = cbep_colors()[4]) +
+  geom_smooth(method = 'lm', se = FALSE, color = cbep_colors()[3]) +
+  
+  xlab('Capisic Brook') +
+  ylab('Royal River') +
+  
+  xlim(0, 0.75) +
+  ylim(0, 0.5) +
+  
+  ggtitle('Organic Nitrogen (mg/l)') +
+  
+  theme_cbep(base_size = 12) +
+  theme(title = element_text(size = 8))
+plt
+ggsave('figures/royal-capisic_organic.pdf', device = cairo_pdf, width = 3, height = 3)
+
+```
+
+(We could explore alternative forms of that model, by transforming variables, 
+etc., but that is not going to be very informative here with limited data.)
+
+# Plot Proportion of TN in each category
+While a full PCA analysis might be informative, we use a ternary plot to
+provide a simple way of evaluating if different rivers show different forms of
+nitrogen.
+```{r calc_proportions}
+tmp <- the_data %>%
+  mutate(across(nox:organic, ~ .x/tn)) %>%
+  filter(! is.na(nox), ! is.na(nh4), ! is.na(organic))
+```
+
+## Points Scaled by Rainfall
+```{r ternary_by_rainfall, fig.width = 5, fig.height = 5}
+tmp <- tmp %>%
+  mutate(sz = as.integer(log1p(SumThree)/2) + 1)
 
 
-## Examine Rainfall Correlations
-```{r}
+TernaryPlot(alab = 'Nitrate', blab = 'Ammonium', clab = 'Organic',
+            grid.lines = 5, grid.minor.lines = 0)
+TernaryPoints(tmp[4:6], pch = 20, 
+              col = cbep_colors()[tmp$tributary],
+              cex = tmp$sz)
+legend('topright', 
+       legend = levels(tmp$tributary),
+       box.lty = 0,
+       pch = 20,
+       col = cbep_colors()[1:3])
+```
+
+What we see is that for all three rivers, little of the extant nitrogen is in 
+the form of ammonium.  The Presumpscot tends to occur at the low nitrate, high 
+organic corner of the diagram, while the Royal and Capisic both show more 
+variability regarding the the dominant form of nitrogen.  The proportion of
+nitrogen in each form is not obviously related to either recent rainfall or 
+total nitrogen.
+
+## Draft Plot
+```{r draft_ternary, fig.width = 5, fig.height = 5}
+TernaryPlot(alab = 'Nitrate', blab = 'Ammonium', clab = 'Organic',
+            grid.lines = 5, grid.minor.lines = 0)
+TernaryPoints(tmp[4:6], pch = 20, 
+              col = cbep_colors()[tmp$tributary])
+legend('topright', 
+       legend = levels(tmp$tributary),
+       box.lty = 0,
+       pch = 20,
+       col = cbep_colors()[1:3])
+```
+
+## Produce PDF
+We have slightly more control size when we specify the graphics 
+device, aswe can specify fonts and base font size.
+```{r fig.width = 3.5, fig.height = 3.5}
+cairo_pdf('figures/ternary.pdf', width = 3.5, height = 3.5,
+          family = 'Montserrat', pointsize = 8)
+TernaryPlot(alab = 'Nitrate', blab = 'Ammonium', clab = 'Organic',
+            grid.lines = 5, grid.minor.lines = 0)
+TernaryPoints(tmp[4:6], pch = 20, 
+              col = cbep_colors()[tmp$tributary])
+legend('topright', 
+       legend = levels(tmp$tributary),
+       box.lty = 0,
+       pch = 20,
+       col = cbep_colors()[1:3])
+dev.off()
+```
+
+
+## Produce PNG
+```{r fig.width = 5, fig.height = 5}
+Cairo::Cairo(file = 'figures/ternary.png', width = 400, height = 400,
+      type = 'png',
+      family = 'Montserrat', pointsize = 9)
+TernaryPlot(alab = 'Nitrate', blab = 'Ammonium', clab = 'Organic',
+            grid.lines = 5, grid.minor.lines = 0)
+TernaryPoints(tmp[4:6], pch = 20, 
+              col = cbep_colors()[tmp$tributary])
+legend('topright', 
+       legend = levels(tmp$tributary),
+       box.lty = 0,
+       pch = 20,
+       col = cbep_colors()[1:3])
+dev.off()
+```
+
+# Examine Rainfall Correlations
+## Total Nitrogen
+```{r  tn_rainfall_cors}
 tmp <- the_data %>% 
   select(dt, tributary, tn, DayOf, LagOne, SumThree, SumFive) %>%
   pivot_wider(names_from = tributary, values_from = tn) %>%
   select(-dt)
-  cor(tmp, use = "p")
+  cc <- cor(tmp, use = "pairwise", method = 'spearman')
+  cc[1:4, 5:7]
 ```
 
-### And rank correlations
-```{r}
-  cor(tmp, use = "p", method = "s")
-  cor(tmp, use = "p", method = "k")
+## Ammonium
+```{r nh4_rainfall_cors}
+tmp <- the_data %>% 
+  select(dt, tributary, nh4, DayOf, LagOne, SumThree, SumFive) %>%
+  pivot_wider(names_from = tributary, values_from =nh4) %>%
+  select(-dt)
+  cc <- cor(tmp, use = "pairwise", method = 'spearman')
+  cc[1:4, 5:7]
+```
+
+## Nitrate
+```{r nox_rainfall_cors}
+tmp <- the_data %>% 
+  select(dt, tributary, nox, DayOf, LagOne, SumThree, SumFive) %>%
+  pivot_wider(names_from = tributary, values_from = nox) %>%
+  select(-dt)
+  cc <- cor(tmp, use = "pairwise", method = 'spearman')
+  cc[1:4, 5:7]
+```
+
+## Organic
+```{r organic_rainfall_cors}
+tmp <- the_data %>% 
+  select(dt, tributary, organic, DayOf, LagOne, SumThree, SumFive) %>%
+  pivot_wider(names_from = tributary, values_from = organic) %>%
+  select(-dt)
+  cc <- cor(tmp, use = "pairwise", method = 'spearman')
+  cc[1:4, 5:7]
 ```
 
 Sample sizes are pretty small, so I would not lean heavily on this, but it looks
 like:    
-1.  Concentrations are largely independent of rainfall on the sample day,
-    perhaps because much of that rainfall may have fallen after the sample was
-    drawn.  At least, correlation coefficients are low enough that I would not
-    want to push the idea on these data alone.  
-2.  I see few correlations with the one day lag.  
-3.  The Presumpscot shows positive correlations with precipitation, lag one,
-    and the  three day and five day sums.
+1.  Concentrations are not significantly associated with  rainfall on the sample
+    day.
+2.  Correlations with the one day lag are similar not-significant, but
+    suggestive.  
+3.  The Presumpscot shows positive TN correlations that are almost certainly
+    significant (absent consideration of implicit  multiple comparisons here)
+    with three day and five day sums.  Correlations for TN are driven by 
+    stronger correlations with organic N.
+4.  There is a hint of a negative association between rainfall in the previous 
+    five days and nitrate on the Royal River, but it is marginally significant,
+    and with the multiple comparisons involved here, not to be trusted.
 
 # Plot the TN Data By Recent Rainfall
-```{r}
+```{r plot_tn_by_rain}
 plt <- ggplot(the_data, aes(SumFive, tn, color = tributary)) + 
   geom_point( ) + 
   geom_smooth(method = 'lm', aes(fill = tributary)) +
@@ -176,6 +433,221 @@ few day, we'd expect very low N concentrations on the Presumscot, but that
 concentration climbs after rain.  Give the limited number of samples, though, we
 can't really tell what shape the relationship with rainfall may be.  From these 
 data, there is a weak suggestion of elevated nitrogen concentrations only for 
-the highest recent rainfal lvalues.
+the highest recent rainfall values.
+
+# Organic N
+```{r presumpscot_organic_lm}
+the_lm <- lm(log(organic) ~ log1p(SumFive),
+             data = the_data, 
+             subset = tributary == 'Presumpscot')
+summary(the_lm)
+```
+
+( A polynomial fit is not significantly better)
+
+```{r plot_model_diag_lm}
+oldpar <- par(mfrow= c(2,2))
+plot(the_lm)
+par(oldpar)
+```
+That is not ideal.  We have a couple of outliers and some high leverage plots.
+We try a robust regression.
+
+## Robust Regression
+```{r presumpscor_prganic_mblm}
+tmp <- the_data %>%
+  filter (tributary == 'Presumpscot') %>%
+  filter( ! is.na(organic)) %>%
+  mutate(org_log = log(organic),
+         five_log1p = log1p(SumFive))
+the_mblm <- mblm(org_log ~ five_log1p,
+             data = tmp)
+summary(the_mblm)
+```
+
+```{r plot_model_diag_mblm}
+oldpar <- par(mfrow= c(2,2))
+plot(the_mblm)
+par(oldpar)
+```
 
 
+```{r preds_from_mblm}
+newdat <- tibble(SumFive = seq(0,80,5), five_log1p = log1p(SumFive))
+preds <- predict(the_mblm, newdata = newdat)
+preds <- newdat %>%
+  mutate(preds = preds)
+```
+
+```{r compare_lm_mblm}
+ggplot(tmp, aes(x = five_log1p, y = org_log)) +
+  geom_point() +
+  geom_line(data = preds, mapping = aes(x = five_log1p, y = preds)) +
+  geom_smooth(method = 'lm', se = FALSE)
+```
+
+If we are O.K  with the linear model, the easiest approach to making final
+graphics is to transform both axes and use `geom_smooth()`:
+
+```{r presumpscot_organic_ lm_plot, fig.width = 3, fig.height = 3}
+the_data %>%
+  filter(tributary == 'Presumpscot') %>%
+  select(organic, SumFive) %>%
+    ggplot(aes(SumFive, organic)) +
+    geom_point(color = cbep_colors()[5]) +
+    geom_smooth( method = 'lm', se = FALSE, color = cbep_colors()[5]) +
+    scale_x_continuous(trans = 'log1p',
+                       breaks = c(0, 1, 5, 10, 25, 50),
+                       labels = scales::comma_format(accuracy = 1)) +
+    scale_y_continuous(trans  = 'log10') +
+  ylab('Organic Nitrogen (mg/l)') +
+  xlab('Five Day Rainfall (mm)') +
+ #ggtitle('Presumpscot') +
+  theme_cbep(base_size = 12)
+ggsave('figures/organic_fiveday.pdf', device = cairo_pdf, width = 3, height = 3)
+```
+```{r back_transform_organic_preds}
+preds <- preds %>%
+  mutate(exp_preds = exp(preds))
+```
+
+```{r plotpresumpscot_organic_mblm, fig.width = 3, fig.height = 3}
+the_data %>%
+  filter(tributary == 'Presumpscot') %>%
+  select(organic, SumFive) %>%
+    ggplot(aes(SumFive, organic)) +
+    geom_point(color = cbep_colors()[1]) +
+    geom_line(mapping = aes(SumFive, exp_preds), data = preds, 
+              color = cbep_colors()[1]) +
+    scale_x_continuous(trans = 'log1p',
+                       breaks = c(0, 1, 5, 10, 25, 50),
+                       labels = scales::comma_format(accuracy = 1)) +
+    scale_y_continuous(trans  = 'log10') +
+  ylab('Organic Nitrogen (mg/l)') +
+  xlab('Five Day Rainfall (mm)') +
+ #ggtitle('Presumpscot') +
+  theme_cbep(base_size = 12)
+ggsave('figures/organic_fiveday_mblm.pdf', device = cairo_pdf, width = 3, height = 3)
+```
+
+
+
+## Total N
+```{r presumpscot_tn_lm}
+the_lm <- lm(log(tn) ~ log1p(SumFive),
+             data = the_data, 
+             subset = tributary == 'Presumpscot')
+summary(the_lm)
+```
+
+(A polynomial fit is marginally significantly better (P ~ 0.07))
+
+```{r model_diagnostics}
+oldpar <- par(mfrow= c(2,2))
+plot(the_lm)
+par(oldpar)
+```
+That is also not ideal.  We again have a couple of outliers and some high leverage plots.
+We try a robust regression.
+
+## Robust Regression
+```{r presumpscot_tn_mblm}
+tmp <- the_data %>%
+  filter (tributary == 'Presumpscot') %>%
+  filter( ! is.na(tn)) %>%
+  mutate(tn_log = log(tn),
+         five_log1p = log1p(SumFive))
+the_mblm <- mblm(tn_log ~ five_log1p,
+             data = tmp)
+summary(the_mblm)
+```
+
+```{r model_diagnotics_again}
+oldpar <- par(mfrow= c(2,2))
+plot(the_mblm)
+par(oldpar)
+```
+
+```{r tn_predictions}
+newdat <- tibble(SumFive = seq(0,80,5), five_log1p = log1p(SumFive))
+preds <- predict(the_mblm, newdata = newdat)
+preds <- newdat %>%
+  mutate(preds = preds)
+```
+
+```{r compare_lms}
+ggplot(tmp, aes(x = five_log1p, y = tn_log)) +
+  geom_point() +
+  geom_line(data = preds, mapping = aes(x = five_log1p, y = preds)) +
+  geom_smooth(method = 'lm', se = FALSE)
+```
+Here, the Robust Regression is better, despite the outlier, but that requires me
+to figure out how to adjust the axes, using break and labeling functions.
+
+## Graphics
+### Linear Model
+Here's the default version, using the linear model via `geom_smooth()`.
+Note that since we are modeling two transformwd variables, we need to specify
+a transformation on each axis.  The `ggplot2` function `geom_smooth()` generates
+a smoothed fit **after** all transforms are applied.  
+```{r plot_presumpscot_tn_lm, fig.width = 3, fig.height = 3}
+tmp %>%
+  select(tn, SumFive) %>%
+    ggplot(aes(SumFive, tn)) +
+    geom_point(color = cbep_colors()[5]) +
+    geom_smooth(method = 'lm', se = FALSE,color = cbep_colors()[5]) +
+    scale_x_continuous(trans = 'log1p',
+                        breaks = c(0, 1, 5, 10, 25, 50),
+                        labels = scales::comma_format(accuracy = 1)) +
+    scale_y_continuous(trans  = 'log10') +
+  ylab('Total Nitrogen (mg/l)') +
+  xlab('Five Day Rainfall (mm)') +
+ #ggtitle('Presumpscot') +
+  theme_cbep(base_size = 12)
+ggsave('figures/tn_fiveday_lm.pdf', device = cairo_pdf, width = 3, height = 3)
+```
+
+### Robust Regression
+We develop an alternative version, using the results of the robust linear model.
+
+The challenge here is that we ran the analysis on transformed variables.  We
+want to signal that to the reader by showing transformed axes, but with labels
+that correspond to untransformed variables.  (That is, the axes should look
+like the ones we just produced.)
+
+There are several ways we could proceed:
+
+1.  Back transform coordinates of our prediciton and then transform the axes 
+    again for display.  
+2.  Plot on transformed axes, and then relabel those axes with untransformed 
+    labels.  
+3.  A combination of the two, where we use one strategy on one axis, and another
+    on the other axis.  
+
+#### Back transformed predictions
+Because we can directly plot both a log axis and a log(X+1) axis, the back 
+transform here is simplest.
+
+```{r back_transform_predictions}
+preds <- preds %>%
+  mutate(exp_preds = exp(preds))
+```
+
+```{r plot(presumpscot_tn_mblm, fig.width = 3, fig.height = 3}
+the_data %>%
+  filter(tributary == 'Presumpscot') %>%
+  select(tn, SumFive) %>%
+    ggplot(aes(SumFive, tn)) +
+    geom_point(color = cbep_colors()[6]) +
+    geom_line(mapping = aes(SumFive, exp_preds), data = preds, 
+              color = cbep_colors()[6]) +
+    scale_x_continuous(trans = 'log1p',
+                       breaks = c(0, 1, 5, 10, 25, 50),
+                       labels = scales::comma_format(accuracy = 1)) +
+    scale_y_continuous(trans  = 'log10') +
+  ylab('Total Nitrogen (mg/l)') +
+  xlab('Five Day Rainfall (mm)') +
+ #ggtitle('Presumpscot') +
+  theme_cbep(base_size = 12)
+ggsave('figures/tn_fiveday_mblm.pdf', device = cairo_pdf, width = 3, height = 3)
+```
