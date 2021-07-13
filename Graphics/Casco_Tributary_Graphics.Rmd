@@ -20,7 +20,7 @@ knitr::opts_chunk$set(fig.align = 'center',
 ```
 
 # Install Libraries
-```{r}
+```{r libraries}
 library(readxl)
 library(tidyverse)
 library(GGally)
@@ -31,7 +31,7 @@ theme_set(theme_cbep())
 ```
 
 # Read Data
-```{r foder_refs}
+```{r folder_refs}
 sibfldnm <- 'Original_Data'
 parent <- dirname(getwd())
 sibling <- paste(parent,sibfldnm, sep = '/')
@@ -41,7 +41,7 @@ dir.create(file.path(getwd(), 'figures'), showWarnings = FALSE)
 ```
 
 
-```{r warning = FALSE}
+```{r load_data, warning = FALSE}
 the_data <- read_excel(file.path(sibling, fn), 
                        col_types = c("date", "numeric", "numeric", 
                                      "numeric", "numeric"), skip = 1) %>%
@@ -55,7 +55,7 @@ the_data <- read_excel(file.path(sibling, fn),
 ```
 
 
-```{r}
+```{r add_tribs}
 the_data$tributary <- c(rep('Presumpscot',17), 
                         rep('Royal', 19), 
                         rep('Capisic', 16))
@@ -64,9 +64,37 @@ the_data <- the_data %>%
   mutate(tributary = factor(tributary, levels = c('Capisic', 'Royal', 'Presumpscot')))
 ```
 
+
+# Summary Statistics
+```{r summary_stats}
+tmp <- the_data %>%
+  group_by(tributary) %>%
+  summarize(across(tn:organic,
+                   .fns = list(mean = ~mean(.x, na.rm = TRUE),
+                               sd   = ~mean(.x, na.rm = TRUE),
+                               n    = ~ sum(!is.na(.x))),
+                   .names = '{.col}_{.fn}' ))
+tmp
+```
+
+```{r summary_stats_2}
+tmp <- the_data %>%
+  pivot_longer(tn:organic, names_to = 'Parameter', values_to = 'Value') %>%
+  group_by(Parameter, tributary) %>%
+  summarize(mean = round(mean(Value, na.rm = TRUE), 3),
+            sd   = round(sd(Value, na.rm = TRUE), 4),
+            n    = sum(!is.na(Value)),
+            .groups = 'drop')
+knitr::kable(tmp, col.names = c('Parameter', 'Tributary', 'Mean', 'Standard Deviation', 'Sample Size'))
+```
+
+
+
+
+
 # Exploratory Graphics
 ## Pairs Plot
-```{r fig.width = 8, fig.height = 8}
+```{r pairs_plot, fig.width = 8, fig.height = 8}
 plt <- ggpairs(the_data[3:6], 
                mapping = aes(color =the_data$tributary), progress = FALSE)
 plt
@@ -80,7 +108,7 @@ Quickly reviewing that, you see:
 
 # Alternative Graphics
 ## Density Plots
-```{r}
+```{r density_plot}
 plt <- ggplot(the_data, aes(x=tn, y = ..density.., fill= tributary)) + 
   geom_density(alpha = 0.5) +
   scale_fill_manual(values=cbep_colors(), name = '') +
@@ -91,7 +119,7 @@ plt
 ggsave('figures/densityplot.pdf', device = cairo_pdf, width = 5, height = 4)
 ```
 
-```{r}
+```{r area_plot}
 plt <- ggplot(the_data, aes(x=tn, fill = tributary)) + 
   geom_area(aes(fill = tributary), stat = "bin", alpha = 0.5) +
   scale_fill_manual(values=cbep_colors(), name = '') +
@@ -106,7 +134,7 @@ ggsave('figures/densitypoly.pdf', device = cairo_pdf, width = 5, height = 4)
 ## Histograms
 Histograms are a bit more "honest", since they don't bury the tiny sample size. 
 But neither of these are particularly attractive from a design perspective.
-```{r}
+```{r histogram_1}
 plt <- ggplot(the_data, aes(x=tn, fill= tributary)) +
   geom_histogram(position = position_dodge2(preserve = "single", padding = -0.75),
                  alpha = 0.5, 
@@ -119,7 +147,7 @@ plt
 ggsave('figures/histogram1.pdf', device = cairo_pdf, width = 5, height = 4)
 ```
 
-```{r}
+```{r histogram_2}
 plt <- ggplot(the_data, aes(x=tn, fill= tributary)) +
   geom_histogram(data = subset(the_data, tributary == 'Capisic'),
                  fill = cbep_colors()[1], 
@@ -137,18 +165,68 @@ plt
 ```
 
 ## Dot Plot
-```{r fig.width = 3.5, fig,height = 2.5}
+```{r dot_plot, fig.width = 3.5, fig.height = 2.5}
 plt <- ggplot(the_data, aes(x=tributary, y = tn)) +
   geom_dotplot(binaxis='y', stackdir='center', 
-               binwidth = 0.025, dotsize = 1.5, 
+               binwidth = 0.025, dotsize = 1.25, 
                fill = cbep_colors()[5], color = cbep_colors()[3]) +
                                                               
   ylab('Total Nitrogen (mg/l)') + 
   xlab('') +
     
  # ylim(c(0,1.5)) +
-  theme_cbep(base_size = 14)
+  theme_cbep(base_size = 12)
 plt
 ggsave('figures/dotplot.pdf', device = cairo_pdf, width = 3.5, height = 2.5)
 
 ```
+
+## Box Plot
+```{r box_plot, fig.width = 3.5, fig.height = 3.5}
+plt <- ggplot(the_data, aes(x=tributary, y = tn)) +
+
+  geom_boxplot(width = .75, color = cbep_colors()[3],
+               outlier.shape = NA,
+               #coef = 0
+               ) +
+  geom_jitter(width = 0.075,  height = 0,
+             # alpha = 0.5,
+              color = cbep_colors()[5]) +
+
+  ylab('Total Nitrogen (mg/l)') + 
+  xlab('') +
+  
+  ylim(0, NA) +
+  
+  theme_cbep(base_size = 12)
+plt
+```
+
+### Add Boxplot Annotation
+```{r final_graphic, fig.width = 3.5, fig.height = 3.5}
+xanchor = 2.25
+yanchor = 1
+ysize = .075
+xsize = .1
+
+plt +
+  
+  annotate('rect', xmin = xanchor, ymin = yanchor - ysize, 
+                   xmax = xanchor + xsize, ymax = yanchor + ysize,
+           fill = 'white', color = 'gray30', size = .5) + 
+  annotate('segment', x= xanchor, y = yanchor, xend = xanchor + 0.1, yend = yanchor, 
+           color = 'gray30') +
+  
+  annotate('text', x= xanchor + xsize*1.5, y = yanchor - ysize,
+           hjust = 0, size = 3, label = '25th percentile') +
+  annotate('text', x= xanchor + xsize*1.5, y = yanchor,
+           hjust = 0, size = 3, label = 'median') +
+  annotate('text', x= xanchor + xsize*1.5, y = yanchor + ysize,
+           hjust = 0, size = 3, label = '75th percentile')
+
+
+ggsave('figures/boxplot.pdf', device = cairo_pdf, width = 3.5, height = 3.5)
+
+```
+
+

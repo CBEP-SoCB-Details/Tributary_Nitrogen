@@ -68,7 +68,13 @@ the_data <- the_data %>%
 ```
 
 # Rainfall Data
-Downloaded rainfall data is in tenths of millimeters.  We convert to millimeters.
+Gray's thesis looked for correlations with discharge, and found none, but 
+samples were relatively few, local data on discharge was only available for the 
+Presumpscot and estimates of discharge were used on the other two rivers.  We 
+take a different (and complementary) approach by looking at recent rainfall.
+
+Note that the downloaded rainfall data from NOAA is in tenths of millimeters. 
+We convert to millimeters.
 ```{r load_weather_data, warning = FALSE}
 rain_data <- read_csv(file.path(sibling, 'portland_weather5_17-8_18.csv'),
                       col_types = cols(
@@ -155,6 +161,10 @@ plt
 ggsave('figures/ammonium_correlations.pdf', device = cairo_pdf, width = 3, height = 3.5)
 ```
 
+Some sort of regional or seasonal signal is leading to region-scale correlations
+amongthe different river basins in terms of ammonium, despite it's low relative
+concetrnation.
+
 ## Organic N
 ```{r organic_correlations_by_river}
 tmp <- the_data %>% select(dt, tributary, organic) %>%
@@ -189,6 +199,8 @@ ggsave('figures/royal-capisic_organic.pdf', device = cairo_pdf,
        width = 3, height = 2.75)
 
 ```
+
+Organic nitrogen is highly correlated between the Royal River and Capisic Brook.
 
 # Plot Proportion of TN in each category
 We use a ternary plot to provide a simple way of evaluating if different rivers

@@ -36,16 +36,22 @@ Curtis C. Bohlen, Casco Bay Estuary Partnership.
 library(readxl)
 library(readr)
 library(tidyverse)
-#> -- Attaching packages --------------------------------------- tidyverse 1.3.0 --
-#> v ggplot2 3.3.3     v dplyr   1.0.3
-#> v tibble  3.0.5     v stringr 1.4.0
-#> v tidyr   1.1.2     v forcats 0.5.0
+#> Warning: package 'tidyverse' was built under R version 4.0.5
+#> -- Attaching packages --------------------------------------- tidyverse 1.3.1 --
+#> v ggplot2 3.3.3     v dplyr   1.0.5
+#> v tibble  3.1.1     v stringr 1.4.0
+#> v tidyr   1.1.3     v forcats 0.5.1
 #> v purrr   0.3.4
+#> Warning: package 'tibble' was built under R version 4.0.5
+#> Warning: package 'tidyr' was built under R version 4.0.5
+#> Warning: package 'dplyr' was built under R version 4.0.5
+#> Warning: package 'forcats' was built under R version 4.0.5
 #> -- Conflicts ------------------------------------------ tidyverse_conflicts() --
 #> x dplyr::filter() masks stats::filter()
 #> x dplyr::lag()    masks stats::lag()
 
 library(GGally)
+#> Warning: package 'GGally' was built under R version 4.0.5
 #> Registered S3 method overwritten by 'GGally':
 #>   method from   
 #>   +.gg   ggplot2
@@ -94,8 +100,14 @@ the_data <- the_data %>%
 
 # Rainfall Data
 
-Downloaded rainfall data is in tenths of millimeters. We convert to
-millimeters.
+Gray’s thesis looked for correlations with discharge, and found none,
+but samples were relatively few, local data on discharge was only
+available for the Presumpscot and estimates of discharge were used on
+the other two rivers. We take a different (and complementary) approach
+by looking at recent rainfall.
+
+Note that the downloaded rainfall data from NOAA is in tenths of
+millimeters. We convert to millimeters.
 
 ``` r
 rain_data <- read_csv(file.path(sibling, 'portland_weather5_17-8_18.csv'),
@@ -199,6 +211,10 @@ ggsave('figures/ammonium_correlations.pdf', device = cairo_pdf, width = 3, heigh
 #> Warning: Removed 7 rows containing missing values (geom_point).
 ```
 
+Some sort of regional or seasonal signal is leading to region-scale
+correlations amongthe different river basins in terms of ammonium,
+despite it’s low relative concetrnation.
+
 ## Organic N
 
 ``` r
@@ -249,6 +265,9 @@ ggsave('figures/royal-capisic_organic.pdf', device = cairo_pdf,
 
 #> Warning: Removed 7 rows containing missing values (geom_point).
 ```
+
+Organic nitrogen is highly correlated between the Royal River and
+Capisic Brook.
 
 # Plot Proportion of TN in each category
 

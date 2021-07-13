@@ -5,12 +5,15 @@ Curtis C. Bohlen, Casco Bay Estuary Partnership.
 
 -   [Install Libraries](#install-libraries)
 -   [Read Data](#read-data)
+-   [Summary Statistics](#summary-statistics)
 -   [Exploratory Graphics](#exploratory-graphics)
     -   [Pairs Plot](#pairs-plot)
 -   [Alternative Graphics](#alternative-graphics)
     -   [Density Plots](#density-plots)
     -   [Histograms](#histograms)
     -   [Dot Plot](#dot-plot)
+    -   [Box Plot](#box-plot)
+        -   [Add Boxplot Annotation](#add-boxplot-annotation)
 
 <img
     src="https://www.cascobayestuary.org/wp-content/uploads/2014/04/logo_sm.jpg"
@@ -21,15 +24,21 @@ Curtis C. Bohlen, Casco Bay Estuary Partnership.
 ``` r
 library(readxl)
 library(tidyverse)
-#> -- Attaching packages --------------------------------------- tidyverse 1.3.0 --
+#> Warning: package 'tidyverse' was built under R version 4.0.5
+#> -- Attaching packages --------------------------------------- tidyverse 1.3.1 --
 #> v ggplot2 3.3.3     v purrr   0.3.4
-#> v tibble  3.0.5     v dplyr   1.0.3
-#> v tidyr   1.1.2     v stringr 1.4.0
-#> v readr   1.4.0     v forcats 0.5.0
+#> v tibble  3.1.1     v dplyr   1.0.5
+#> v tidyr   1.1.3     v stringr 1.4.0
+#> v readr   1.4.0     v forcats 0.5.1
+#> Warning: package 'tibble' was built under R version 4.0.5
+#> Warning: package 'tidyr' was built under R version 4.0.5
+#> Warning: package 'dplyr' was built under R version 4.0.5
+#> Warning: package 'forcats' was built under R version 4.0.5
 #> -- Conflicts ------------------------------------------ tidyverse_conflicts() --
 #> x dplyr::filter() masks stats::filter()
 #> x dplyr::lag()    masks stats::lag()
 library(GGally)
+#> Warning: package 'GGally' was built under R version 4.0.5
 #> Registered S3 method overwritten by 'GGally':
 #>   method from   
 #>   +.gg   ggplot2
@@ -72,6 +81,53 @@ the_data <- the_data %>%
   mutate(tributary = factor(tributary, levels = c('Capisic', 'Royal', 'Presumpscot')))
 ```
 
+# Summary Statistics
+
+``` r
+tmp <- the_data %>%
+  group_by(tributary) %>%
+  summarize(across(tn:organic,
+                   .fns = list(mean = ~mean(.x, na.rm = TRUE),
+                               sd   = ~mean(.x, na.rm = TRUE),
+                               n    = ~ sum(!is.na(.x))),
+                   .names = '{.col}_{.fn}' ))
+tmp
+#> # A tibble: 3 x 13
+#>   tributary   tn_mean tn_sd  tn_n nox_mean nox_sd nox_n nh4_mean nh4_sd nh4_n
+#>   <fct>         <dbl> <dbl> <int>    <dbl>  <dbl> <int>    <dbl>  <dbl> <int>
+#> 1 Capisic       0.932 0.932    16   0.415  0.415     16   0.0624 0.0624    16
+#> 2 Royal         0.513 0.513    19   0.220  0.220     18   0.0237 0.0237    19
+#> 3 Presumpscot   0.229 0.229    16   0.0430 0.0430    17   0.0175 0.0175    17
+#> # ... with 3 more variables: organic_mean <dbl>, organic_sd <dbl>,
+#> #   organic_n <int>
+```
+
+``` r
+tmp <- the_data %>%
+  pivot_longer(tn:organic, names_to = 'Parameter', values_to = 'Value') %>%
+  group_by(Parameter, tributary) %>%
+  summarize(mean = round(mean(Value, na.rm = TRUE), 3),
+            sd   = round(sd(Value, na.rm = TRUE), 4),
+            n    = sum(!is.na(Value)),
+            .groups = 'drop')
+knitr::kable(tmp, col.names = c('Parameter', 'Tributary', 'Mean', 'Standard Deviation', 'Sample Size'))
+```
+
+| Parameter | Tributary   |  Mean | Standard Deviation | Sample Size |
+|:----------|:------------|------:|-------------------:|------------:|
+| nh4       | Capisic     | 0.062 |             0.0299 |          16 |
+| nh4       | Royal       | 0.024 |             0.0119 |          19 |
+| nh4       | Presumpscot | 0.018 |             0.0155 |          17 |
+| nox       | Capisic     | 0.415 |             0.0969 |          16 |
+| nox       | Royal       | 0.220 |             0.1205 |          18 |
+| nox       | Presumpscot | 0.043 |             0.0278 |          17 |
+| organic   | Capisic     | 0.455 |             0.1627 |          16 |
+| organic   | Royal       | 0.280 |             0.1012 |          19 |
+| organic   | Presumpscot | 0.172 |             0.0776 |          16 |
+| tn        | Capisic     | 0.932 |             0.1503 |          16 |
+| tn        | Royal       | 0.513 |             0.0908 |          19 |
+| tn        | Presumpscot | 0.229 |             0.0956 |          16 |
+
 # Exploratory Graphics
 
 ## Pairs Plot
@@ -105,7 +161,7 @@ plt
 #> Warning: Removed 1 rows containing non-finite values (stat_density).
 ```
 
-<img src="Casco_Tributary_Graphics_files/figure-gfm/unnamed-chunk-4-1.png" style="display: block; margin: auto;" />
+<img src="Casco_Tributary_Graphics_files/figure-gfm/pairs_plot-1.png" style="display: block; margin: auto;" />
 
 Quickly reviewing that, you see:  
 1. TN is quite distinct among all three sources. The Presumpscot has
@@ -128,7 +184,7 @@ plt
 #> Warning: Removed 1 rows containing non-finite values (stat_density).
 ```
 
-<img src="Casco_Tributary_Graphics_files/figure-gfm/unnamed-chunk-5-1.png" style="display: block; margin: auto;" />
+<img src="Casco_Tributary_Graphics_files/figure-gfm/density_plot-1.png" style="display: block; margin: auto;" />
 
 ``` r
 ggsave('figures/densityplot.pdf', device = cairo_pdf, width = 5, height = 4)
@@ -147,7 +203,7 @@ plt
 #> Warning: Removed 1 rows containing non-finite values (stat_bin).
 ```
 
-<img src="Casco_Tributary_Graphics_files/figure-gfm/unnamed-chunk-6-1.png" style="display: block; margin: auto;" />
+<img src="Casco_Tributary_Graphics_files/figure-gfm/area_plot-1.png" style="display: block; margin: auto;" />
 
 ``` r
 ggsave('figures/densitypoly.pdf', device = cairo_pdf, width = 5, height = 4)
@@ -174,7 +230,7 @@ plt
 #> Warning: Removed 1 rows containing non-finite values (stat_bin).
 ```
 
-<img src="Casco_Tributary_Graphics_files/figure-gfm/unnamed-chunk-7-1.png" style="display: block; margin: auto;" />
+<img src="Casco_Tributary_Graphics_files/figure-gfm/histogram_1-1.png" style="display: block; margin: auto;" />
 
 ``` r
 ggsave('figures/histogram1.pdf', device = cairo_pdf, width = 5, height = 4)
@@ -199,28 +255,90 @@ plt
 #> Warning: Removed 1 rows containing non-finite values (stat_bin).
 ```
 
-<img src="Casco_Tributary_Graphics_files/figure-gfm/unnamed-chunk-8-1.png" style="display: block; margin: auto;" />
+<img src="Casco_Tributary_Graphics_files/figure-gfm/histogram_2-1.png" style="display: block; margin: auto;" />
 
 ## Dot Plot
 
 ``` r
 plt <- ggplot(the_data, aes(x=tributary, y = tn)) +
   geom_dotplot(binaxis='y', stackdir='center', 
-               binwidth = 0.025, dotsize = 1.5, 
+               binwidth = 0.025, dotsize = 1.25, 
                fill = cbep_colors()[5], color = cbep_colors()[3]) +
                                                               
   ylab('Total Nitrogen (mg/l)') + 
   xlab('') +
     
  # ylim(c(0,1.5)) +
-  theme_cbep(base_size = 14)
+  theme_cbep(base_size = 12)
 plt
 #> Warning: Removed 1 rows containing non-finite values (stat_bindot).
 ```
 
-<img src="Casco_Tributary_Graphics_files/figure-gfm/fig-1.png" style="display: block; margin: auto;" />
+<img src="Casco_Tributary_Graphics_files/figure-gfm/dot_plot-1.png" style="display: block; margin: auto;" />
 
 ``` r
 ggsave('figures/dotplot.pdf', device = cairo_pdf, width = 3.5, height = 2.5)
 #> Warning: Removed 1 rows containing non-finite values (stat_bindot).
+```
+
+## Box Plot
+
+``` r
+plt <- ggplot(the_data, aes(x=tributary, y = tn)) +
+
+  geom_boxplot(width = .75, color = cbep_colors()[3],
+               outlier.shape = NA,
+               #coef = 0
+               ) +
+  geom_jitter(width = 0.075,  height = 0,
+             # alpha = 0.5,
+              color = cbep_colors()[5]) +
+
+  ylab('Total Nitrogen (mg/l)') + 
+  xlab('') +
+  
+  ylim(0, NA) +
+  
+  theme_cbep(base_size = 12)
+plt
+#> Warning: Removed 1 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 1 rows containing missing values (geom_point).
+```
+
+<img src="Casco_Tributary_Graphics_files/figure-gfm/box_plot-1.png" style="display: block; margin: auto;" />
+
+### Add Boxplot Annotation
+
+``` r
+xanchor = 2.25
+yanchor = 1
+ysize = .075
+xsize = .1
+
+plt +
+  
+  annotate('rect', xmin = xanchor, ymin = yanchor - ysize, 
+                   xmax = xanchor + xsize, ymax = yanchor + ysize,
+           fill = 'white', color = 'gray30', size = .5) + 
+  annotate('segment', x= xanchor, y = yanchor, xend = xanchor + 0.1, yend = yanchor, 
+           color = 'gray30') +
+  
+  annotate('text', x= xanchor + xsize*1.5, y = yanchor - ysize,
+           hjust = 0, size = 3, label = '25th percentile') +
+  annotate('text', x= xanchor + xsize*1.5, y = yanchor,
+           hjust = 0, size = 3, label = 'median') +
+  annotate('text', x= xanchor + xsize*1.5, y = yanchor + ysize,
+           hjust = 0, size = 3, label = '75th percentile')
+#> Warning: Removed 1 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 1 rows containing missing values (geom_point).
+```
+
+<img src="Casco_Tributary_Graphics_files/figure-gfm/final_graphic-1.png" style="display: block; margin: auto;" />
+
+``` r
+
+ggsave('figures/boxplot.pdf', device = cairo_pdf, width = 3.5, height = 3.5)
+#> Warning: Removed 1 rows containing non-finite values (stat_boxplot).
+
+#> Warning: Removed 1 rows containing missing values (geom_point).
 ```
