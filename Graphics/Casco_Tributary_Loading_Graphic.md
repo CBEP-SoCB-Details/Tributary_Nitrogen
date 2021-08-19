@@ -53,23 +53,10 @@ the_data <- read_excel(file.path(sibling, fn),
     mutate(Tributary = factor(Tributary, levels = c('Capisic', 'Royal', 'Presumpscot', "Other")))
 ```
 
-fig.width = 3, fig.height = 4} plt &lt;-sum\_data %&gt;% filter(Site !=
-‘SAPPI’ & Site != ‘Westbrook’) %&gt;% mutate(Site =
-fct\_reorder(factor(Site), tn\_load\_avg, .desc = TRUE)) %&gt;%
-
-ggplot(aes(Site, tn\_load\_avg)) + geom\_col(fill = cbep\_colors()\[5\])
-+
-
-\#scale\_y\_log10() + ylab(‘Total Nitrogen (lbs/day)’) +
-scale\_color\_manual(values = cbep\_colors(), name = ’‘) +
-theme\_cbep(base\_size = 12) + theme(legend.position = ’bottom’,
-axis.text.x= element\_text(size = 10, angle =90, hjust = 1, vjust =
-0.25)) plt
-
 ``` r
 total = sum(the_data$`Annual Load`)
 
-ggplot(the_data, aes(1, `Annual Load`, fill = Tributary)) +
+plt <- ggplot(the_data, aes(1, `Annual Load`, fill = Tributary)) +
   geom_col() +
   
   ylab('Total Nitrogen\n(Metric Tons per Year)')  +
@@ -85,6 +72,12 @@ ggplot(the_data, aes(1, `Annual Load`, fill = Tributary)) +
   annotate('text', x = 1, y = 1.04 * total, 
            label = paste(round(total), 'MT'), 
            size = 3)
+plt
 ```
 
 <img src="Casco_Tributary_Loading_Graphic_files/figure-gfm/unnamed-chunk-1-1.png" style="display: block; margin: auto;" />
+
+``` r
+ggsave('figures/annual_tn_loads_tributaries.pdf', 
+       device = cairo_pdf, width = 2.85, height = 4)
+```

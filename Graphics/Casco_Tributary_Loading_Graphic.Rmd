@@ -48,28 +48,12 @@ the_data <- read_excel(file.path(sibling, fn),
     mutate(Tributary = factor(Tributary, levels = c('Capisic', 'Royal', 'Presumpscot', "Other")))
 ```
 
-fig.width = 3, fig.height = 4}
-plt <-sum_data %>%
-  filter(Site != 'SAPPI' & Site != 'Westbrook') %>%
-  mutate(Site = fct_reorder(factor(Site), tn_load_avg, .desc = TRUE)) %>%
-  
-  ggplot(aes(Site, tn_load_avg)) + 
-  geom_col(fill = cbep_colors()[5]) + 
-  
-  #scale_y_log10() + 
-  ylab('Total Nitrogen (lbs/day)')  +
-  scale_color_manual(values = cbep_colors(), name = '') +
-  theme_cbep(base_size = 12) +
-  theme(legend.position = 'bottom', 
-        axis.text.x= element_text(size = 10, angle =90, hjust = 1, vjust = 0.25))
-plt
-
 
 ```{r, fig.width = 2.85, fig.height = 4}
 
 total = sum(the_data$`Annual Load`)
 
-ggplot(the_data, aes(1, `Annual Load`, fill = Tributary)) +
+plt <- ggplot(the_data, aes(1, `Annual Load`, fill = Tributary)) +
   geom_col() +
   
   ylab('Total Nitrogen\n(Metric Tons per Year)')  +
@@ -85,5 +69,9 @@ ggplot(the_data, aes(1, `Annual Load`, fill = Tributary)) +
   annotate('text', x = 1, y = 1.04 * total, 
            label = paste(round(total), 'MT'), 
            size = 3)
+plt
+
+ggsave('figures/annual_tn_loads_tributaries.pdf', 
+       device = cairo_pdf, width = 2.85, height = 4)
 ```
 
