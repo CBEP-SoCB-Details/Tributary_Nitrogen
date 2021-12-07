@@ -432,7 +432,7 @@ legend('topright',
 What we see is that for all three rivers, little of the extant nitrogen
 is in the form of ammonium. The Presumpscot tends to occur at the low
 nitrate, high organic corner of the diagram, while the Royal and Capisic
-both show more variability regarding the the dominant form of nitrogen.
+both show more variability regarding the dominant form of nitrogen.
 The proportion of nitrogen in each form is not obviously related to
 either recent rainfall or total nitrogen.
 
@@ -455,7 +455,7 @@ legend('topright',
 ## Produce PDF
 
 We have slightly more control size when we specify the graphics device,
-aswe can specify fonts and base font size.
+as we can specify fonts and base font size.
 
 ``` r
 cairo_pdf('figures/ternary.pdf', width = 3.5, height = 3.5,
@@ -602,7 +602,7 @@ plt
 
 So, what this shows us is that when there’s little or no rainfall over
 the prior few day, we’d expect very low N concentrations on the
-Presumscot, but that concentration climbs after rain. Give the limited
+Presumpscot, but that concentration climbs after rain. Give the limited
 number of samples, though, we can’t really tell what shape the
 relationship with rainfall may be. From these data, there is a weak
 suggestion of elevated nitrogen concentrations only for the highest
@@ -895,7 +895,7 @@ labeling functions.
 ### Linear Model
 
 Here’s the default version, using the linear model via `geom_smooth()`.
-Note that since we are modeling two transformwd variables, we need to
+Note that since we are modeling two transformed variables, we need to
 specify a transformation on each axis. The `ggplot2` function
 `geom_smooth()` generates a smoothed fit **after** all transforms are
 applied.
@@ -936,7 +936,7 @@ axes should look like the ones we just produced.)
 
 There are several ways we could proceed:
 
-1.  Back transform coordinates of our prediciton and then transform the
+1.  Back transform coordinates of our predicton and then transform the
     axes again for display.  
 2.  Plot on transformed axes, and then relabel those axes with
     untransformed labels.  
