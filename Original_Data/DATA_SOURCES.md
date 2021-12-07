@@ -7,7 +7,7 @@ She collected surface water samples from three tributaries to Casco Bay
 in 2017 and 2018, and measured Total Nitrogen (TN), 
 Nitrate + Nitrite nitrogen ("NOx"), and ammonium nitrogen (NH4).  She calculated 
  organic nitrogen as the difference between TN and inorganic nitrogen
- (NOx + NH4).  All values are expressed in in mg/l as N.
+ (NOx + NH4).  All values are expressed in mg/l as N.
   
 Gray sent the file "2017-18 Casco Bay Tributary Nitrogen Concentrations.xlsx" to
 Curtis Bohlen, Karen Wilson, Damian Brady, and Angie Brewer via e-mail 
