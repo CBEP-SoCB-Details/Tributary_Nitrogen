@@ -48,7 +48,6 @@ the_data <- read_excel(file.path(sibling, fn),
     mutate(Tributary = factor(Tributary, levels = c('Capisic', 'Royal', 'Presumpscot', "Other")))
 ```
 
-
 ```{r, fig.width = 2.85, fig.height = 4}
 
 total = sum(the_data$`Annual Load`)

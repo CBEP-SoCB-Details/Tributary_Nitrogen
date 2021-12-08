@@ -49,16 +49,22 @@ Curtis C. Bohlen, Casco Bay Estuary Partnership.
 library(readxl)
 library(readr)
 library(tidyverse)
-#> -- Attaching packages --------------------------------------- tidyverse 1.3.0 --
-#> v ggplot2 3.3.3     v dplyr   1.0.3
-#> v tibble  3.0.5     v stringr 1.4.0
-#> v tidyr   1.1.2     v forcats 0.5.0
+#> Warning: package 'tidyverse' was built under R version 4.0.5
+#> -- Attaching packages --------------------------------------- tidyverse 1.3.1 --
+#> v ggplot2 3.3.5     v dplyr   1.0.7
+#> v tibble  3.1.6     v stringr 1.4.0
+#> v tidyr   1.1.4     v forcats 0.5.1
 #> v purrr   0.3.4
+#> Warning: package 'ggplot2' was built under R version 4.0.5
+#> Warning: package 'tidyr' was built under R version 4.0.5
+#> Warning: package 'dplyr' was built under R version 4.0.5
+#> Warning: package 'forcats' was built under R version 4.0.5
 #> -- Conflicts ------------------------------------------ tidyverse_conflicts() --
 #> x dplyr::filter() masks stats::filter()
 #> x dplyr::lag()    masks stats::lag()
 
 library(GGally)
+#> Warning: package 'GGally' was built under R version 4.0.5
 #> Registered S3 method overwritten by 'GGally':
 #>   method from   
 #>   +.gg   ggplot2
@@ -385,7 +391,8 @@ plt
 <img src="Casco_Tributary_Rainfall_files/figure-gfm/organic_capisic_royal-1.png" style="display: block; margin: auto;" />
 
 ``` r
-ggsave('figures/royal-capisic_organic.pdf', device = cairo_pdf, width = 3, height = 3)
+ggsave('figures/royal-capisic_organic.pdf', device = cairo_pdf, 
+       width = 3, height = 3)
 #> `geom_smooth()` using formula 'y ~ x'
 #> Warning: Removed 7 rows containing non-finite values (stat_smooth).
 
@@ -432,9 +439,9 @@ legend('topright',
 What we see is that for all three rivers, little of the extant nitrogen
 is in the form of ammonium. The Presumpscot tends to occur at the low
 nitrate, high organic corner of the diagram, while the Royal and Capisic
-both show more variability regarding the the dominant form of nitrogen.
-The proportion of nitrogen in each form is not obviously related to
-either recent rainfall or total nitrogen.
+both show more variability regarding the dominant form of nitrogen. The
+proportion of nitrogen in each form is not obviously related to either
+recent rainfall or total nitrogen.
 
 ## Draft Plot
 
@@ -455,7 +462,7 @@ legend('topright',
 ## Produce PDF
 
 We have slightly more control size when we specify the graphics device,
-aswe can specify fonts and base font size.
+as we can specify fonts and base font size.
 
 ``` r
 cairo_pdf('figures/ternary.pdf', width = 3.5, height = 3.5,
@@ -602,7 +609,7 @@ plt
 
 So, what this shows us is that when there’s little or no rainfall over
 the prior few day, we’d expect very low N concentrations on the
-Presumscot, but that concentration climbs after rain. Give the limited
+Presumspcot, but that concentration climbs after rain. Give the limited
 number of samples, though, we can’t really tell what shape the
 relationship with rainfall may be. From these data, there is a weak
 suggestion of elevated nitrogen concentrations only for the highest
@@ -637,7 +644,7 @@ summary(the_lm)
 #> F-statistic: 10.39 on 1 and 14 DF,  p-value: 0.006135
 ```
 
-( A polynomial fit is not significantly better)
+(A polynomial fit is not significantly better)
 
 ``` r
 oldpar <- par(mfrow= c(2,2))
@@ -895,7 +902,7 @@ labeling functions.
 ### Linear Model
 
 Here’s the default version, using the linear model via `geom_smooth()`.
-Note that since we are modeling two transformwd variables, we need to
+Note that since we are modeling two transformed variables, we need to
 specify a transformation on each axis. The `ggplot2` function
 `geom_smooth()` generates a smoothed fit **after** all transforms are
 applied.
@@ -936,7 +943,7 @@ axes should look like the ones we just produced.)
 
 There are several ways we could proceed:
 
-1.  Back transform coordinates of our prediciton and then transform the
+1.  Back transform coordinates of our prediction and then transform the
     axes again for display.  
 2.  Plot on transformed axes, and then relabel those axes with
     untransformed labels.  
